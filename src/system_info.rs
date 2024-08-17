@@ -113,12 +113,14 @@ impl GpuInfo {
     pub async fn get_gpu_info() -> Option<Self> {
         // TODO: AMD support
         let Ok(mut cmd) = tokio::process::Command::new("nvidia-smi")
+            .arg("-i")
+            .arg("0")  // Select to GPU0
             .arg("-q")
             .arg("-x")
             .stdout(std::process::Stdio::piped())
             .spawn() else {
-				return None;
-			};
+                return None;
+            };
 
         let stdout = cmd.stdout.take().unwrap();
         let mut stdout_reader = tokio::io::BufReader::new(stdout);
@@ -127,13 +129,13 @@ impl GpuInfo {
             return None;
         };
 
-        match xmltojson::to_json(&mut_stdout) {
+        match xmltojson::to_json(&mut mut_stdout) {
             Ok(json) => {
-                let g = json["nvidia_smi_log"]["gpu"].to_owned();
+                let g = &json["nvidia_smi_log"]["gpu"];
                 Some(GpuInfo {
-                    vram_max: (g["fb_memory_usage"]["total"].to_string()),
-                    gpu_usage: (g["utilization"]["gpu_util"].to_string()),
-                    vram_used: (g["fb_memory_usage"]["used"].to_string()),
+                    vram_max: g["fb_memory_usage"]["total"].to_string(),
+                    gpu_usage: g["utilization"]["gpu_util"].to_string(),
+                    vram_used: g["fb_memory_usage"]["used"].to_string(),
                 })
             }
             Err(_) => None,
